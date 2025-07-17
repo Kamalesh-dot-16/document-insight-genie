@@ -1,16 +1,17 @@
 import { useState, useCallback } from 'react';
-import { Upload, File, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Upload, File, AlertCircle, CheckCircle2, Trash } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
 interface PDFUploadProps {
   onFileUpload: (file: File) => void;
+  onFileRemove: () => void;
   isUploading: boolean;
   uploadedFile: File | null;
 }
 
-export const PDFUpload = ({ onFileUpload, isUploading, uploadedFile }: PDFUploadProps) => {
+export const PDFUpload = ({ onFileUpload, onFileRemove, isUploading, uploadedFile }: PDFUploadProps) => {
   const [dragActive, setDragActive] = useState(false);
   const { toast } = useToast();
 
@@ -64,7 +65,7 @@ export const PDFUpload = ({ onFileUpload, isUploading, uploadedFile }: PDFUpload
         <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
           <Upload className="w-8 h-8 text-primary" />
         </div>
-        
+
         <div>
           <h3 className="text-xl font-semibold text-foreground mb-2">
             Upload PDF Document
@@ -76,10 +77,20 @@ export const PDFUpload = ({ onFileUpload, isUploading, uploadedFile }: PDFUpload
 
         {uploadedFile ? (
           <div className="bg-success/10 border border-success/20 rounded-lg p-4">
-            <div className="flex items-center justify-center space-x-2 text-success">
-              <CheckCircle2 className="w-5 h-5" />
-              <File className="w-5 h-5" />
-              <span className="font-medium">{uploadedFile.name}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-success">
+                <CheckCircle2 className="w-5 h-5" />
+                <File className="w-5 h-5" />
+                <span className="font-medium">{uploadedFile.name}</span>
+              </div>
+              <button
+                type="button"
+                onClick={onFileRemove}
+                className="text-red-500 hover:text-red-700 transition-colors"
+                title="Remove file"
+              >
+                <Trash className="w-5 h-5" />
+              </button>
             </div>
             <p className="text-sm text-success/80 mt-1">
               Ready for questions! Upload a new PDF to replace.
@@ -101,7 +112,7 @@ export const PDFUpload = ({ onFileUpload, isUploading, uploadedFile }: PDFUpload
               <div className="flex justify-center">
                 <File className={`w-12 h-12 ${dragActive ? 'text-primary' : 'text-muted-foreground'}`} />
               </div>
-              
+
               <div className="space-y-2">
                 <p className="text-foreground font-medium">
                   Drag and drop your PDF here
@@ -126,7 +137,7 @@ export const PDFUpload = ({ onFileUpload, isUploading, uploadedFile }: PDFUpload
         <input
           id="pdf-upload"
           type="file"
-          accept=".pdf"
+          accept=".pdf,application/pdf"
           onChange={handleFileInput}
           className="hidden"
         />
