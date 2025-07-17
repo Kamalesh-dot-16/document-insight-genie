@@ -7,6 +7,7 @@ import { PDFUpload } from '@/components/PDFUpload';
 import { QuestionInput } from '@/components/QuestionInput';
 import { AnswerDisplay } from '@/components/AnswerDisplay';
 
+
 interface QAItem {
   id: string;
   question: string;
@@ -14,6 +15,7 @@ interface QAItem {
   timestamp: Date;
   sources?: string[];
 }
+
 
 const Index = () => {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -83,6 +85,11 @@ const Index = () => {
       setIsUploading(false);
     }
   };
+  const handleFileRemove = () => {
+  setUploadedFile(null);
+  const fileInput = document.getElementById('pdf-upload') as HTMLInputElement | null;
+  if (fileInput) fileInput.value = '';
+};
 
   const handleAskQuestion = async (question: string) => {
     if (!uploadedFile) {
@@ -244,11 +251,12 @@ const Index = () => {
             {/* Left Column - Upload & Question */}
             <div className="space-y-6">
               <PDFUpload
-                onFileUpload={handleFileUpload}
-                isUploading={isUploading}
                 uploadedFile={uploadedFile}
-              />
-              
+                isUploading={isUploading}
+                 onFileUpload={handleFileUpload}
+                 onFileRemove={handleFileRemove}
+/>
+
               <QuestionInput
                 onAskQuestion={handleAskQuestion}
                 isLoading={isAsking}
