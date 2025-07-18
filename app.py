@@ -1,11 +1,13 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 import os
 import fitz 
 import requests
 from typing import List
+from datetime import datetime
 
 from langchain.vectorstores import FAISS
 from langchain.embeddings import SentenceTransformerEmbeddings
@@ -14,8 +16,17 @@ from langchain.llms.base import LLM
 from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 
+# Database imports
+from database import get_db, create_tables
+from models import PDFUpload, QuestionAnswer
+
 # --- FastAPI Setup ---
 app = FastAPI()
+
+# Create database tables on startup
+@app.on_event("startup")
+def startup_event():
+    create_tables()
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,7 +62,7 @@ class OllamaLLM(LLM):
 
 # --- Upload PDF Endpoint ---
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
@@ -72,7 +83,22 @@ async def upload_file(file: UploadFile = File(...)):
     global vectorstore
     vectorstore = FAISS.from_texts(chunks, embedding_model)
 
-    return {"message": f"Uploaded and processed {file.filename}"}
+    # --- DATABASE LOGGING ---
+    # Store PDF upload record in database
+    pdf_record = PDFUpload(
+        filename=file.filename,
+        file_path=file_path,
+        upload_timestamp=datetime.utcnow(),
+        user_info=None  # Can be extended later for user authentication
+    )
+    db.add(pdf_record)
+    db.commit()
+    db.refresh(pdf_record)
+
+    return {
+        "message": f"Uploaded and processed {file.filename}",
+        "pdf_id": pdf_record.id
+    }
 
 
 # --- Ask Question Endpoint ---
@@ -81,7 +107,7 @@ class QuestionRequest(BaseModel):
 
 
 @app.post("/ask")
-async def ask_question(payload: QuestionRequest):
+async def ask_question(payload: QuestionRequest, db: Session = Depends(get_db)):
     if vectorstore is None:
         raise HTTPException(status_code=400, detail="No document uploaded yet.")
 
@@ -106,9 +132,26 @@ Answer:"""
 
     answer = chain.run(input_documents=docs, question=payload.question)
 
+    # --- DATABASE LOGGING ---
+    # Get the most recent PDF upload (you might want to modify this logic)
+    latest_pdf = db.query(PDFUpload).order_by(PDFUpload.upload_timestamp.desc()).first()
+    
+    if latest_pdf:
+        # Store question-answer pair in database
+        qa_record = QuestionAnswer(
+            question=payload.question,
+            answer=answer,
+            timestamp=datetime.utcnow(),
+            pdf_upload_id=latest_pdf.id
+        )
+        db.add(qa_record)
+        db.commit()
+        db.refresh(qa_record)
+
     return {
         "answer": answer,
-        "sources": [doc.page_content for doc in docs]
+        "sources": [doc.page_content for doc in docs],
+        "qa_id": qa_record.id if latest_pdf else None
     }
 
 
